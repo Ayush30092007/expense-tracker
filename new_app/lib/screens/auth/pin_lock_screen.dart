@@ -152,7 +152,7 @@ class _PinLockScreenState extends State<PinLockScreen>
                 const SizedBox(height: 36),
                 // ─── PIN Dots ───
                 Consumer<PinAuthProvider>(
-                  builder: (_, provider, __) {
+                  builder: (_, provider, _) {
                     return AnimatedBuilder(
                       animation: _shakeAnimation,
                       builder: (context, child) {
@@ -266,7 +266,7 @@ class _PinLockScreenState extends State<PinLockScreen>
 
   Widget _buildStatusArea() {
     return Consumer<PinAuthProvider>(
-      builder: (_, provider, __) {
+      builder: (_, provider, _) {
         if (provider.isLockedOut && provider.remainingLockout != null) {
           final secs = provider.remainingLockout!.inSeconds;
           return Container(

@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../database/database_helper.dart';
 import '../../providers/pin_auth_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/app_theme.dart';
@@ -375,8 +374,8 @@ class _ForgotPinScreenState extends State<ForgotPinScreen>
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
 
-    // Close and delete the database
-    await DatabaseHelper.instance.close();
+    // Note: With Firebase, there's no local database to close
+    // All data is in the cloud and will be inaccessible after logout
 
     if (mounted) {
       // Restart the app by pushing to a fresh state

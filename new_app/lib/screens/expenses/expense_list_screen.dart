@@ -85,7 +85,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         Text('Transactions', style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w800,
           color: isDark ? AppTheme.darkText : AppTheme.textPrimary, letterSpacing: -0.5)),
-        Consumer<ExpenseProvider>(builder: (_, exp, __) => Container(
+        Consumer<ExpenseProvider>(builder: (_, exp, _) => Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(color: AppTheme.accentPurple.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(100)),
           child: Text('${exp.monthlyExpenses.length} items', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.accentPurple)),

@@ -262,7 +262,7 @@ class _LoginScreenState extends State<LoginScreen>
             ),
             // ─── Error message ───
             Consumer<AuthProvider>(
-              builder: (_, auth, __) {
+              builder: (_, auth, _) {
                 if (auth.error != null) {
                   return Padding(
                     padding: const EdgeInsets.only(top: 16),
@@ -303,7 +303,7 @@ class _LoginScreenState extends State<LoginScreen>
             const SizedBox(height: 28),
             // Login Button
             Consumer<AuthProvider>(
-              builder: (_, auth, __) {
+              builder: (_, auth, _) {
                 return SizedBox(
                   width: double.infinity,
                   height: 52,

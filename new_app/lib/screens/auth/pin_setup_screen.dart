@@ -22,7 +22,7 @@ class _PinSetupScreenState extends State<PinSetupScreen>
   String _confirmPin = '';
   bool _isConfirmStep = false;
   String? _error;
-  int _pinLength = 4;
+  final int _pinLength = 4;
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
 
@@ -262,17 +262,6 @@ class _PinSetupScreenState extends State<PinSetupScreen>
         ],
       ),
     );
-  }
-
-  void _onPinLengthChanged(int length) {
-    HapticFeedback.selectionClick();
-    setState(() {
-      _pinLength = length;
-      _pin = '';
-      _confirmPin = '';
-      _isConfirmStep = false;
-      _error = null;
-    });
   }
 
   @override

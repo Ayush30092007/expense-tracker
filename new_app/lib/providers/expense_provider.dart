@@ -1,5 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import '../database/database_helper.dart';
+import '../services/firebase_service.dart';
 import '../models/expense_model.dart';
 import '../models/recurring_expense_model.dart';
 
@@ -17,7 +18,10 @@ class ExpenseProvider with ChangeNotifier {
   double _previousMonthTotal = 0;
   double _todayTotal = 0;
   bool _isLoading = false;
-  int? _userId;
+  String? _userId;
+
+  StreamSubscription<List<ExpenseModel>>? _expenseSubscription;
+  StreamSubscription<List<RecurringExpenseModel>>? _recurringSubscription;
 
   List<ExpenseModel> get expenses => _expenses;
   List<ExpenseModel> get todayExpenses => _todayExpenses;
@@ -49,8 +53,115 @@ class ExpenseProvider with ChangeNotifier {
     return ((_monthlyTotal - _previousMonthTotal) / _previousMonthTotal * 100);
   }
 
-  void setUserId(int userId) {
+  @override
+  void dispose() {
+    _expenseSubscription?.cancel();
+    _recurringSubscription?.cancel();
+    super.dispose();
+  }
+
+  void setUserId(String userId) {
+    if (_userId == userId) return;
     _userId = userId;
+    _setupRealtimeListeners();
+  }
+
+  void _setupRealtimeListeners() {
+    if (_userId == null) return;
+
+    _expenseSubscription?.cancel();
+    _expenseSubscription = FirebaseService.instance
+        .getExpensesStream(_userId!)
+        .listen((expenses) {
+      _expenses = expenses;
+      _recalculateAggregates();
+    });
+
+    _recurringSubscription?.cancel();
+    _recurringSubscription = FirebaseService.instance
+        .getRecurringExpensesStream(_userId!)
+        .listen((recurring) {
+      _recurringExpenses = recurring;
+      notifyListeners();
+    });
+  }
+
+  void _recalculateAggregates() {
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final todayEnd = DateTime(now.year, now.month, now.day, 23, 59, 59);
+    final monthStart = DateTime(now.year, now.month, 1);
+    final monthEnd = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+    final last7Start = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6));
+    final prevMonthStart = DateTime(now.year, now.month - 1, 1);
+    final prevMonthEnd = DateTime(now.year, now.month, 0, 23, 59, 59);
+
+    _todayExpenses = _expenses.where((e) =>
+        e.date.isAfter(todayStart.subtract(const Duration(seconds: 1))) &&
+        e.date.isBefore(todayEnd.add(const Duration(seconds: 1)))
+    ).toList();
+
+    _monthlyExpenses = _expenses.where((e) =>
+        e.date.isAfter(monthStart.subtract(const Duration(seconds: 1))) &&
+        e.date.isBefore(monthEnd.add(const Duration(seconds: 1)))
+    ).toList();
+
+    _last7DaysExpenses = _expenses.where((e) =>
+        e.date.isAfter(last7Start.subtract(const Duration(seconds: 1))) &&
+        e.date.isBefore(todayEnd.add(const Duration(seconds: 1)))
+    ).toList();
+
+    _monthlyTotal = _monthlyExpenses
+        .where((e) => e.isExpense)
+        .fold(0.0, (sum, e) => sum + e.amount);
+
+    _monthlyIncomeTotal = _monthlyExpenses
+        .where((e) => e.isIncome)
+        .fold(0.0, (sum, e) => sum + e.amount);
+
+    final prevMonthExpenses = _expenses.where((e) =>
+        e.date.isAfter(prevMonthStart.subtract(const Duration(seconds: 1))) &&
+        e.date.isBefore(prevMonthEnd.add(const Duration(seconds: 1)))
+    ).toList();
+
+    _previousMonthTotal = prevMonthExpenses
+        .where((e) => e.isExpense)
+        .fold(0.0, (sum, e) => sum + e.amount);
+
+    _categoryTotals = {};
+    for (final e in _monthlyExpenses.where((e) => e.isExpense)) {
+      _categoryTotals[e.category] = (_categoryTotals[e.category] ?? 0.0) + e.amount;
+    }
+
+    _incomeCategoryTotals = {};
+    for (final e in _monthlyExpenses.where((e) => e.isIncome)) {
+      _incomeCategoryTotals[e.category] = (_incomeCategoryTotals[e.category] ?? 0.0) + e.amount;
+    }
+
+    // Daily totals for last 7 days
+    final dailyMap = <String, double>{};
+    for (int i = 6; i >= 0; i--) {
+      final day = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
+      final dayKey = '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+      dailyMap[dayKey] = 0.0;
+    }
+
+    for (final e in _last7DaysExpenses.where((e) => e.isExpense)) {
+      final dayKey = '${e.date.year}-${e.date.month.toString().padLeft(2, '0')}-${e.date.day.toString().padLeft(2, '0')}';
+      if (dailyMap.containsKey(dayKey)) {
+        dailyMap[dayKey] = (dailyMap[dayKey] ?? 0.0) + e.amount;
+      }
+    }
+
+    _dailyTotals = dailyMap.entries
+        .map((entry) => {'day': entry.key, 'total': entry.value})
+        .toList();
+
+    _todayTotal = _todayExpenses
+        .where((e) => e.isExpense)
+        .fold(0.0, (sum, e) => sum + e.amount);
+
+    notifyListeners();
   }
 
   Future<void> loadExpenses() async {
@@ -61,34 +172,34 @@ class ExpenseProvider with ChangeNotifier {
     try {
       final now = DateTime.now();
 
-      _expenses = await DatabaseHelper.instance.getExpenses(_userId!);
-      _todayExpenses = await DatabaseHelper.instance.getTodayExpenses(_userId!);
-      _last7DaysExpenses = await DatabaseHelper.instance.getLast7DaysExpenses(_userId!);
-      _monthlyExpenses = await DatabaseHelper.instance.getExpensesByMonth(
+      _expenses = await FirebaseService.instance.getExpenses(_userId!);
+      _todayExpenses = await FirebaseService.instance.getTodayExpenses(_userId!);
+      _last7DaysExpenses = await FirebaseService.instance.getLast7DaysExpenses(_userId!);
+      _monthlyExpenses = await FirebaseService.instance.getExpensesByMonth(
         _userId!, now.year, now.month,
       );
-      _monthlyTotal = await DatabaseHelper.instance.getMonthlyExpense(
+      _monthlyTotal = await FirebaseService.instance.getMonthlyExpense(
         _userId!, now.year, now.month,
       );
-      _monthlyIncomeTotal = await DatabaseHelper.instance.getMonthlyIncome(
+      _monthlyIncomeTotal = await FirebaseService.instance.getMonthlyIncome(
         _userId!, now.year, now.month,
       );
       // Previous month
       final prevMonth = DateTime(now.year, now.month - 1);
-      _previousMonthTotal = await DatabaseHelper.instance.getMonthlyExpense(
+      _previousMonthTotal = await FirebaseService.instance.getMonthlyExpense(
         _userId!, prevMonth.year, prevMonth.month,
       );
-      _categoryTotals = await DatabaseHelper.instance.getCategoryTotals(
+      _categoryTotals = await FirebaseService.instance.getCategoryTotals(
         _userId!, now.year, now.month, type: 'expense',
       );
-      _incomeCategoryTotals = await DatabaseHelper.instance.getCategoryTotals(
+      _incomeCategoryTotals = await FirebaseService.instance.getCategoryTotals(
         _userId!, now.year, now.month, type: 'income',
       );
-      _dailyTotals = await DatabaseHelper.instance.getDailyTotals(_userId!, 7);
+      _dailyTotals = await FirebaseService.instance.getDailyTotals(_userId!, 7);
       _todayTotal = _todayExpenses.where((e) => e.isExpense).fold(0.0, (sum, e) => sum + e.amount);
 
       // Load recurring
-      _recurringExpenses = await DatabaseHelper.instance.getRecurringExpenses(_userId!);
+      _recurringExpenses = await FirebaseService.instance.getRecurringExpenses(_userId!);
     } catch (e) {
       debugPrint('Error loading expenses: $e');
     }
@@ -103,19 +214,19 @@ class ExpenseProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      _monthlyExpenses = await DatabaseHelper.instance.getExpensesByMonth(
+      _monthlyExpenses = await FirebaseService.instance.getExpensesByMonth(
         _userId!, year, month,
       );
-      _categoryTotals = await DatabaseHelper.instance.getCategoryTotals(
+      _categoryTotals = await FirebaseService.instance.getCategoryTotals(
         _userId!, year, month, type: 'expense',
       );
-      _incomeCategoryTotals = await DatabaseHelper.instance.getCategoryTotals(
+      _incomeCategoryTotals = await FirebaseService.instance.getCategoryTotals(
         _userId!, year, month, type: 'income',
       );
-      _monthlyTotal = await DatabaseHelper.instance.getMonthlyExpense(
+      _monthlyTotal = await FirebaseService.instance.getMonthlyExpense(
         _userId!, year, month,
       );
-      _monthlyIncomeTotal = await DatabaseHelper.instance.getMonthlyIncome(
+      _monthlyIncomeTotal = await FirebaseService.instance.getMonthlyIncome(
         _userId!, year, month,
       );
     } catch (e) {
@@ -149,19 +260,19 @@ class ExpenseProvider with ChangeNotifier {
     try {
       final endOfDay = DateTime(end.year, end.month, end.day, 23, 59, 59);
       final startOfDay = DateTime(start.year, start.month, start.day);
-      _rangeExpenses = await DatabaseHelper.instance.getExpensesByDateRange(
+      _rangeExpenses = await FirebaseService.instance.getExpensesByDateRange(
         _userId!, startOfDay, endOfDay,
       );
-      _rangeCategoryTotals = await DatabaseHelper.instance.getCategoryTotalsByDateRange(
+      _rangeCategoryTotals = await FirebaseService.instance.getCategoryTotalsByDateRange(
         _userId!, startOfDay, endOfDay, type: 'expense',
       );
-      _rangeIncomeCategoryTotals = await DatabaseHelper.instance.getCategoryTotalsByDateRange(
+      _rangeIncomeCategoryTotals = await FirebaseService.instance.getCategoryTotalsByDateRange(
         _userId!, startOfDay, endOfDay, type: 'income',
       );
-      _rangeExpenseTotal = await DatabaseHelper.instance.getTotalByDateRange(
+      _rangeExpenseTotal = await FirebaseService.instance.getTotalByDateRange(
         _userId!, startOfDay, endOfDay, type: 'expense',
       );
-      _rangeIncomeTotal = await DatabaseHelper.instance.getTotalByDateRange(
+      _rangeIncomeTotal = await FirebaseService.instance.getTotalByDateRange(
         _userId!, startOfDay, endOfDay, type: 'income',
       );
     } catch (e) {
@@ -174,8 +285,7 @@ class ExpenseProvider with ChangeNotifier {
 
   Future<bool> addExpense(ExpenseModel expense) async {
     try {
-      await DatabaseHelper.instance.createExpense(expense);
-      await loadExpenses();
+      await FirebaseService.instance.createExpense(expense);
       return true;
     } catch (e) {
       debugPrint('Error adding expense: $e');
@@ -185,8 +295,7 @@ class ExpenseProvider with ChangeNotifier {
 
   Future<bool> updateExpense(ExpenseModel expense) async {
     try {
-      await DatabaseHelper.instance.updateExpense(expense);
-      await loadExpenses();
+      await FirebaseService.instance.updateExpense(expense);
       return true;
     } catch (e) {
       debugPrint('Error updating expense: $e');
@@ -194,10 +303,9 @@ class ExpenseProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> deleteExpense(int id) async {
+  Future<bool> deleteExpense(String id) async {
     try {
-      await DatabaseHelper.instance.deleteExpense(id);
-      await loadExpenses();
+      await FirebaseService.instance.deleteExpense(id);
       return true;
     } catch (e) {
       debugPrint('Error deleting expense: $e');
@@ -209,9 +317,7 @@ class ExpenseProvider with ChangeNotifier {
 
   Future<bool> addRecurringExpense(RecurringExpenseModel recurring) async {
     try {
-      await DatabaseHelper.instance.createRecurringExpense(recurring);
-      _recurringExpenses = await DatabaseHelper.instance.getRecurringExpenses(_userId!);
-      notifyListeners();
+      await FirebaseService.instance.createRecurringExpense(recurring);
       return true;
     } catch (e) {
       debugPrint('Error adding recurring: $e');
@@ -219,11 +325,9 @@ class ExpenseProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> deleteRecurringExpense(int id) async {
+  Future<bool> deleteRecurringExpense(String id) async {
     try {
-      await DatabaseHelper.instance.deleteRecurringExpense(id);
-      _recurringExpenses.removeWhere((r) => r.id == id);
-      notifyListeners();
+      await FirebaseService.instance.deleteRecurringExpense(id);
       return true;
     } catch (e) {
       debugPrint('Error deleting recurring: $e');
@@ -234,10 +338,7 @@ class ExpenseProvider with ChangeNotifier {
   Future<bool> toggleRecurring(RecurringExpenseModel recurring) async {
     try {
       final updated = recurring.copyWith(isActive: !recurring.isActive);
-      await DatabaseHelper.instance.updateRecurringExpense(updated);
-      final idx = _recurringExpenses.indexWhere((r) => r.id == recurring.id);
-      if (idx >= 0) _recurringExpenses[idx] = updated;
-      notifyListeners();
+      await FirebaseService.instance.updateRecurringExpense(updated);
       return true;
     } catch (e) {
       return false;
@@ -288,6 +389,10 @@ class ExpenseProvider with ChangeNotifier {
   }
 
   void clear() {
+    _expenseSubscription?.cancel();
+    _expenseSubscription = null;
+    _recurringSubscription?.cancel();
+    _recurringSubscription = null;
     _expenses = [];
     _todayExpenses = [];
     _monthlyExpenses = [];
@@ -304,4 +409,3 @@ class ExpenseProvider with ChangeNotifier {
     notifyListeners();
   }
 }
-// updated: 2026-09-23

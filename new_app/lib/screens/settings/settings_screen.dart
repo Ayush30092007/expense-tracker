@@ -169,8 +169,9 @@ class SettingsScreen extends StatelessWidget {
                       SliverToBoxAdapter(
                         child: Consumer<PinAuthProvider>(
                           builder: (ctx, pinAuth, _) {
-                            if (!pinAuth.isPinSet)
+                            if (!pinAuth.isPinSet) {
                               return const SizedBox.shrink();
+                            }
                             return Column(
                               children: [
                                 _buildSettingsTile(

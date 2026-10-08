@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:io' show Platform;
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'providers/expense_provider.dart';
 import 'providers/theme_provider.dart';
@@ -19,15 +17,10 @@ import 'package:google_fonts/google_fonts.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (kIsWeb) {
-    // Initialize sqflite for Chrome/Web (uses IndexedDB under the hood)
-    databaseFactory = databaseFactoryFfiWeb;
-  } else if (Platform.isWindows || Platform.isLinux) {
-    // Initialize sqflite for Windows/Linux desktop
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-  }
-  // Android/iOS use sqflite natively — no init needed
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -41,8 +34,6 @@ void main() async {
   );
   runApp(const ExpenseTrackerApp());
 }
-
-
 
 class ExpenseTrackerApp extends StatelessWidget {
   const ExpenseTrackerApp({super.key});
@@ -145,9 +136,9 @@ class _SplashScreenState extends State<SplashScreen>
         onUnlocked: (unlockCtx) {
           Navigator.of(unlockCtx).pushReplacement(
             PageRouteBuilder(
-              pageBuilder: (_, __, ___) => const MainShell(),
+              pageBuilder: (_, _, _) => const MainShell(),
               transitionDuration: const Duration(milliseconds: 600),
-              transitionsBuilder: (_, animation, __, child) {
+              transitionsBuilder: (_, animation, _, child) {
                 return FadeTransition(
                   opacity: animation,
                   child: ScaleTransition(
@@ -170,9 +161,9 @@ class _SplashScreenState extends State<SplashScreen>
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => destination,
+        pageBuilder: (_, _, _) => destination,
         transitionDuration: const Duration(milliseconds: 600),
-        transitionsBuilder: (_, animation, __, child) {
+        transitionsBuilder: (_, animation, _, child) {
           return FadeTransition(
             opacity: animation,
             child: ScaleTransition(
@@ -290,4 +281,3 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 }
-// updated: 2026-09-23

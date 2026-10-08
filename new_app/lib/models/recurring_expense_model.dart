@@ -1,11 +1,11 @@
 class RecurringExpenseModel {
-  final int? id;
-  final int userId;
+  final String? id;
+  final String userId;
   final String title;
   final double amount;
   final String category;
   final String frequency; // 'daily', 'weekly', 'monthly', 'yearly'
-  final int? walletId;
+  final String? walletId;
   final DateTime startDate;
   final DateTime? endDate;
   final DateTime? lastTriggered;
@@ -38,7 +38,7 @@ class RecurringExpenseModel {
       'start_date': startDate.toIso8601String(),
       'end_date': endDate?.toIso8601String(),
       'last_triggered': lastTriggered?.toIso8601String(),
-      'is_active': isActive ? 1 : 0,
+      'is_active': isActive,
       'created_at': createdAt.toIso8601String(),
     };
     if (id != null) map['id'] = id;
@@ -46,34 +46,44 @@ class RecurringExpenseModel {
   }
 
   factory RecurringExpenseModel.fromMap(Map<String, dynamic> map) {
+    bool parseIsActive(dynamic val) {
+      if (val is bool) return val;
+      if (val is int) return val == 1;
+      return true;
+    }
+
     return RecurringExpenseModel(
-      id: map['id'] as int?,
-      userId: map['user_id'] as int,
-      title: map['title'] as String,
-      amount: (map['amount'] as num).toDouble(),
-      category: map['category'] as String,
-      frequency: map['frequency'] as String,
-      walletId: map['wallet_id'] as int?,
-      startDate: DateTime.parse(map['start_date'] as String),
+      id: map['id']?.toString(),
+      userId: map['user_id']?.toString() ?? '',
+      title: (map['title'] as String?) ?? '',
+      amount: (map['amount'] as num?)?.toDouble() ?? 0.0,
+      category: (map['category'] as String?) ?? 'Other',
+      frequency: (map['frequency'] as String?) ?? 'monthly',
+      walletId: map['wallet_id']?.toString(),
+      startDate: map['start_date'] != null
+          ? DateTime.parse(map['start_date'] as String)
+          : DateTime.now(),
       endDate: map['end_date'] != null
           ? DateTime.parse(map['end_date'] as String)
           : null,
       lastTriggered: map['last_triggered'] != null
           ? DateTime.parse(map['last_triggered'] as String)
           : null,
-      isActive: (map['is_active'] as int?) == 1,
-      createdAt: DateTime.parse(map['created_at'] as String),
+      isActive: parseIsActive(map['is_active']),
+      createdAt: map['created_at'] != null
+          ? DateTime.parse(map['created_at'] as String)
+          : DateTime.now(),
     );
   }
 
   RecurringExpenseModel copyWith({
-    int? id,
-    int? userId,
+    String? id,
+    String? userId,
     String? title,
     double? amount,
     String? category,
     String? frequency,
-    int? walletId,
+    String? walletId,
     DateTime? startDate,
     DateTime? endDate,
     DateTime? lastTriggered,
@@ -121,4 +131,3 @@ class RecurringExpenseModel {
     {'key': 'yearly', 'label': 'Yearly', 'icon': '🎯'},
   ];
 }
-// updated: 2026-09-23

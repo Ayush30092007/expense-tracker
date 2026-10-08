@@ -306,7 +306,7 @@ class _RegisterScreenState extends State<RegisterScreen>
             ),
             // Error
             Consumer<AuthProvider>(
-              builder: (_, auth, __) {
+              builder: (_, auth, _) {
                 if (auth.error != null) {
                   return Padding(
                     padding: const EdgeInsets.only(top: 16),
@@ -342,7 +342,7 @@ class _RegisterScreenState extends State<RegisterScreen>
             const SizedBox(height: 28),
             // Register Button
             Consumer<AuthProvider>(
-              builder: (_, auth, __) {
+              builder: (_, auth, _) {
                 return SizedBox(
                   width: double.infinity,
                   height: 52,

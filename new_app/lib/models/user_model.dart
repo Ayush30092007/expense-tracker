@@ -1,5 +1,5 @@
 class UserModel {
-  final int? id;
+  final String? id;
   final String username;
   final String password;
   final String displayName;
@@ -41,15 +41,15 @@ class UserModel {
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
-      id: map['id'] as int?,
-      username: map['username'] as String,
-      password: map['password'] as String,
-      displayName: map['display_name'] as String,
+      id: map['id']?.toString(),
+      username: (map['username'] as String?) ?? '',
+      password: (map['password'] as String?) ?? '',
+      displayName: (map['display_name'] as String?) ?? '',
       currency: (map['currency'] as String?) ?? 'USD',
       monthlyBudget: (map['monthly_budget'] as num?)?.toDouble() ?? 1000.0,
       avatarEmoji: map['avatar_emoji'] as String?,
       profilePhotoPath: map['profile_photo_path'] as String?,
-      pin: map['pin'] as String?,
+      pin: map['pin']?.toString(),
       createdAt: map['created_at'] != null
           ? DateTime.parse(map['created_at'] as String)
           : DateTime.now(),
@@ -57,7 +57,7 @@ class UserModel {
   }
 
   UserModel copyWith({
-    int? id,
+    String? id,
     String? username,
     String? password,
     String? displayName,
@@ -82,4 +82,3 @@ class UserModel {
     );
   }
 }
-// updated: 2026-09-23

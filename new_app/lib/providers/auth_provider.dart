@@ -1,25 +1,44 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../database/database_helper.dart';
+import '../services/firebase_service.dart';
 import '../models/user_model.dart';
 
 class AuthProvider with ChangeNotifier {
   UserModel? _currentUser;
   bool _isLoading = false;
   String? _error;
+  StreamSubscription<UserModel?>? _userSubscription;
 
   UserModel? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
   bool get isLoggedIn => _currentUser != null;
   String? get error => _error;
 
-  Future<void> tryAutoLogin() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getInt('logged_in_user_id');
-    if (userId != null) {
-      final user = await DatabaseHelper.instance.getUserById(userId);
+  @override
+  void dispose() {
+    _userSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _listenToUser(String userId) {
+    _userSubscription?.cancel();
+    _userSubscription = FirebaseService.instance.getUserStream(userId).listen((user) {
       if (user != null) {
         _currentUser = user;
+        notifyListeners();
+      }
+    });
+  }
+
+  Future<void> tryAutoLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('logged_in_user_id');
+    if (userId != null) {
+      final user = await FirebaseService.instance.getUserById(userId);
+      if (user != null) {
+        _currentUser = user;
+        _listenToUser(userId);
         notifyListeners();
       }
     }
@@ -31,13 +50,15 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final user = await DatabaseHelper.instance.authenticateUser(
-        username.trim(), password,
+      final user = await FirebaseService.instance.authenticateUser(
+        username.trim(),
+        password,
       );
       if (user != null) {
         _currentUser = user;
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt('logged_in_user_id', user.id!);
+        await prefs.setString('logged_in_user_id', user.id!);
+        _listenToUser(user.id!);
         _isLoading = false;
         notifyListeners();
         return true;
@@ -61,7 +82,7 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final existing = await DatabaseHelper.instance.getUser(username.trim());
+      final existing = await FirebaseService.instance.getUser(username.trim());
       if (existing != null) {
         _error = 'Username already exists';
         _isLoading = false;
@@ -74,11 +95,13 @@ class AuthProvider with ChangeNotifier {
         password: password,
         displayName: displayName.trim(),
       );
-      final id = await DatabaseHelper.instance.createUser(user);
+      final id = await FirebaseService.instance.createUser(user);
       _currentUser = user.copyWith(id: id);
 
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('logged_in_user_id', id);
+      await prefs.setString('logged_in_user_id', id);
+
+      _listenToUser(id);
 
       _isLoading = false;
       notifyListeners();
@@ -93,35 +116,39 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> updateCurrency(String currency) async {
     if (_currentUser == null) return;
-    _currentUser = _currentUser!.copyWith(currency: currency);
-    await DatabaseHelper.instance.updateUser(_currentUser!);
+    final updated = _currentUser!.copyWith(currency: currency);
+    _currentUser = updated;
+    await FirebaseService.instance.updateUser(updated);
     notifyListeners();
   }
 
   Future<void> updateBudget(double budget) async {
     if (_currentUser == null) return;
-    _currentUser = _currentUser!.copyWith(monthlyBudget: budget);
-    await DatabaseHelper.instance.updateUser(_currentUser!);
+    final updated = _currentUser!.copyWith(monthlyBudget: budget);
+    _currentUser = updated;
+    await FirebaseService.instance.updateUser(updated);
     notifyListeners();
   }
 
   Future<void> updateDisplayName(String name) async {
     if (_currentUser == null) return;
-    _currentUser = _currentUser!.copyWith(displayName: name);
-    await DatabaseHelper.instance.updateUser(_currentUser!);
+    final updated = _currentUser!.copyWith(displayName: name);
+    _currentUser = updated;
+    await FirebaseService.instance.updateUser(updated);
     notifyListeners();
   }
 
   Future<void> updateAvatar(String emoji) async {
     if (_currentUser == null) return;
-    _currentUser = _currentUser!.copyWith(avatarEmoji: emoji);
-    await DatabaseHelper.instance.updateUser(_currentUser!);
+    final updated = _currentUser!.copyWith(avatarEmoji: emoji);
+    _currentUser = updated;
+    await FirebaseService.instance.updateUser(updated);
     notifyListeners();
   }
 
   Future<void> updateProfilePhoto(String? path) async {
     if (_currentUser == null) return;
-    _currentUser = UserModel(
+    final updated = UserModel(
       id: _currentUser!.id,
       username: _currentUser!.username,
       password: _currentUser!.password,
@@ -133,11 +160,14 @@ class AuthProvider with ChangeNotifier {
       pin: _currentUser!.pin,
       createdAt: _currentUser!.createdAt,
     );
-    await DatabaseHelper.instance.updateUser(_currentUser!);
+    _currentUser = updated;
+    await FirebaseService.instance.updateUser(updated);
     notifyListeners();
   }
 
   Future<void> logout() async {
+    _userSubscription?.cancel();
+    _userSubscription = null;
     _currentUser = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('logged_in_user_id');
@@ -149,4 +179,3 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 }
-// updated: 2026-09-23

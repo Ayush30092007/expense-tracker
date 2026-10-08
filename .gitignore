@@ -1,0 +1,32 @@
+# SQLite Database Files
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+**/service-account*.json
+**/private-key*.json
+
+# Firebase Emulator Data
+**/firebase-export*/
+**/.firebase/
+
+# IDE & Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Node modules (if any)
+node_modules/
+
+# Flutter/Dart - handled by new_app/.gitignore
+# (Flutter-specific patterns remain in new_app/.gitignore)

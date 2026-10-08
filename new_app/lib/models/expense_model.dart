@@ -1,17 +1,17 @@
 class ExpenseModel {
-  final int? id;
-  final int userId;
+  final String? id;
+  final String userId;
   final String title;
   final double amount;
   final String category;
   final String type; // 'expense' or 'income'
   final String? note;
   final DateTime date;
-  final int? walletId;
+  final String? walletId;
   final String? receiptPath;
   final bool isHidden;
-  final int? recurringId;
-  final int? splitGroupId;
+  final String? recurringId;
+  final String? splitGroupId;
   final DateTime createdAt;
 
   ExpenseModel({
@@ -45,7 +45,7 @@ class ExpenseModel {
       'date': date.toIso8601String(),
       'wallet_id': walletId,
       'receipt_path': receiptPath,
-      'is_hidden': isHidden ? 1 : 0,
+      'is_hidden': isHidden,
       'recurring_id': recurringId,
       'split_group_id': splitGroupId,
       'created_at': createdAt.toIso8601String(),
@@ -55,38 +55,48 @@ class ExpenseModel {
   }
 
   factory ExpenseModel.fromMap(Map<String, dynamic> map) {
+    bool parseIsHidden(dynamic val) {
+      if (val is bool) return val;
+      if (val is int) return val == 1;
+      return false;
+    }
+
     return ExpenseModel(
-      id: map['id'] as int?,
-      userId: map['user_id'] as int,
-      title: map['title'] as String,
-      amount: (map['amount'] as num).toDouble(),
-      category: map['category'] as String,
+      id: map['id']?.toString(),
+      userId: map['user_id']?.toString() ?? '',
+      title: (map['title'] as String?) ?? '',
+      amount: (map['amount'] as num?)?.toDouble() ?? 0.0,
+      category: (map['category'] as String?) ?? 'Other',
       type: (map['type'] as String?) ?? 'expense',
       note: map['note'] as String?,
-      date: DateTime.parse(map['date'] as String),
-      walletId: map['wallet_id'] as int?,
+      date: map['date'] != null
+          ? DateTime.parse(map['date'] as String)
+          : DateTime.now(),
+      walletId: map['wallet_id']?.toString(),
       receiptPath: map['receipt_path'] as String?,
-      isHidden: (map['is_hidden'] as int?) == 1,
-      recurringId: map['recurring_id'] as int?,
-      splitGroupId: map['split_group_id'] as int?,
-      createdAt: DateTime.parse(map['created_at'] as String),
+      isHidden: parseIsHidden(map['is_hidden']),
+      recurringId: map['recurring_id']?.toString(),
+      splitGroupId: map['split_group_id']?.toString(),
+      createdAt: map['created_at'] != null
+          ? DateTime.parse(map['created_at'] as String)
+          : DateTime.now(),
     );
   }
 
   ExpenseModel copyWith({
-    int? id,
-    int? userId,
+    String? id,
+    String? userId,
     String? title,
     double? amount,
     String? category,
     String? type,
     String? note,
     DateTime? date,
-    int? walletId,
+    String? walletId,
     String? receiptPath,
     bool? isHidden,
-    int? recurringId,
-    int? splitGroupId,
+    String? recurringId,
+    String? splitGroupId,
     DateTime? createdAt,
   }) {
     return ExpenseModel(
@@ -107,4 +117,3 @@ class ExpenseModel {
     );
   }
 }
-// updated: 2026-09-23

@@ -30,7 +30,7 @@ class PinAuthService {
 
   Future<String> _key(String base) async {
     final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getInt('logged_in_user_id') ?? 0;
+    final userId = prefs.getString('logged_in_user_id') ?? '0';
     return 'user_${userId}_$base';
   }
 

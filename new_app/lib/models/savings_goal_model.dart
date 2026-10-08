@@ -1,6 +1,6 @@
 class SavingsGoalModel {
-  final int? id;
-  final int userId;
+  final String? id;
+  final String userId;
   final String title;
   final String emoji;
   final double targetAmount;
@@ -71,21 +71,25 @@ class SavingsGoalModel {
 
   factory SavingsGoalModel.fromMap(Map<String, dynamic> map) {
     return SavingsGoalModel(
-      id: map['id'] as int?,
-      userId: map['user_id'] as int,
-      title: map['title'] as String,
+      id: map['id']?.toString(),
+      userId: map['user_id']?.toString() ?? '',
+      title: (map['title'] as String?) ?? '',
       emoji: (map['emoji'] as String?) ?? '🎯',
-      targetAmount: (map['target_amount'] as num).toDouble(),
+      targetAmount: (map['target_amount'] as num?)?.toDouble() ?? 0.0,
       savedAmount: (map['saved_amount'] as num?)?.toDouble() ?? 0.0,
-      deadline: DateTime.parse(map['deadline'] as String),
+      deadline: map['deadline'] != null
+          ? DateTime.parse(map['deadline'] as String)
+          : DateTime.now(),
       color: (map['color'] as int?) ?? 0xFF7C3AED,
-      createdAt: DateTime.parse(map['created_at'] as String),
+      createdAt: map['created_at'] != null
+          ? DateTime.parse(map['created_at'] as String)
+          : DateTime.now(),
     );
   }
 
   SavingsGoalModel copyWith({
-    int? id,
-    int? userId,
+    String? id,
+    String? userId,
     String? title,
     String? emoji,
     double? targetAmount,
@@ -107,4 +111,3 @@ class SavingsGoalModel {
     );
   }
 }
-// updated: 2026-09-23

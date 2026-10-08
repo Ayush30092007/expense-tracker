@@ -1,6 +1,6 @@
 class WalletModel {
-  final int? id;
-  final int userId;
+  final String? id;
+  final String userId;
   final String name;
   final String type; // 'cash', 'bank', 'e-wallet'
   final String currency;
@@ -38,11 +38,11 @@ class WalletModel {
 
   factory WalletModel.fromMap(Map<String, dynamic> map) {
     return WalletModel(
-      id: map['id'] as int?,
-      userId: map['user_id'] as int,
-      name: map['name'] as String,
-      type: map['type'] as String,
-      currency: map['currency'] as String,
+      id: map['id']?.toString(),
+      userId: map['user_id']?.toString() ?? '',
+      name: (map['name'] as String?) ?? '',
+      type: (map['type'] as String?) ?? 'cash',
+      currency: (map['currency'] as String?) ?? 'USD',
       balance: (map['balance'] as num?)?.toDouble() ?? 0.0,
       icon: (map['icon'] as String?) ?? '💰',
       color: (map['color'] as int?) ?? 0xFF7C3AED,
@@ -53,8 +53,8 @@ class WalletModel {
   }
 
   WalletModel copyWith({
-    int? id,
-    int? userId,
+    String? id,
+    String? userId,
     String? name,
     String? type,
     String? currency,
@@ -84,4 +84,3 @@ class WalletModel {
     {'type': 'savings', 'label': 'Savings', 'icon': '🐷', 'color': 0xFFF59E0B},
   ];
 }
-// updated: 2026-09-23
