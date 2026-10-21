@@ -41,12 +41,16 @@ class ExpenseProvider with ChangeNotifier {
   double get monthlyNetBalance => _monthlyIncomeTotal - _monthlyTotal;
 
   // Only expense items from today
-  List<ExpenseModel> get todayExpenseOnly => _todayExpenses.where((e) => e.isExpense).toList();
-  List<ExpenseModel> get todayIncomeOnly => _todayExpenses.where((e) => e.isIncome).toList();
+  List<ExpenseModel> get todayExpenseOnly =>
+      _todayExpenses.where((e) => e.isExpense).toList();
+  List<ExpenseModel> get todayIncomeOnly =>
+      _todayExpenses.where((e) => e.isIncome).toList();
 
   // Monthly filtered lists
-  List<ExpenseModel> get monthlyExpenseOnly => _monthlyExpenses.where((e) => e.isExpense).toList();
-  List<ExpenseModel> get monthlyIncomeOnly => _monthlyExpenses.where((e) => e.isIncome).toList();
+  List<ExpenseModel> get monthlyExpenseOnly =>
+      _monthlyExpenses.where((e) => e.isExpense).toList();
+  List<ExpenseModel> get monthlyIncomeOnly =>
+      _monthlyExpenses.where((e) => e.isIncome).toList();
 
   double get monthOverMonthChange {
     if (_previousMonthTotal == 0) return 0;
@@ -72,18 +76,23 @@ class ExpenseProvider with ChangeNotifier {
     _expenseSubscription?.cancel();
     _expenseSubscription = FirebaseService.instance
         .getExpensesStream(_userId!)
-        .listen((expenses) {
-      _expenses = expenses;
-      _recalculateAggregates();
-    });
+        .listen(
+          (expenses) {
+            _expenses = expenses;
+            _recalculateAggregates();
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            debugPrint('Error listening to expenses: $error');
+          },
+        );
 
     _recurringSubscription?.cancel();
     _recurringSubscription = FirebaseService.instance
         .getRecurringExpensesStream(_userId!)
         .listen((recurring) {
-      _recurringExpenses = recurring;
-      notifyListeners();
-    });
+          _recurringExpenses = recurring;
+          notifyListeners();
+        });
   }
 
   void _recalculateAggregates() {
@@ -92,24 +101,37 @@ class ExpenseProvider with ChangeNotifier {
     final todayEnd = DateTime(now.year, now.month, now.day, 23, 59, 59);
     final monthStart = DateTime(now.year, now.month, 1);
     final monthEnd = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
-    final last7Start = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6));
+    final last7Start = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(const Duration(days: 6));
     final prevMonthStart = DateTime(now.year, now.month - 1, 1);
     final prevMonthEnd = DateTime(now.year, now.month, 0, 23, 59, 59);
 
-    _todayExpenses = _expenses.where((e) =>
-        e.date.isAfter(todayStart.subtract(const Duration(seconds: 1))) &&
-        e.date.isBefore(todayEnd.add(const Duration(seconds: 1)))
-    ).toList();
+    _todayExpenses = _expenses
+        .where(
+          (e) =>
+              e.date.isAfter(todayStart.subtract(const Duration(seconds: 1))) &&
+              e.date.isBefore(todayEnd.add(const Duration(seconds: 1))),
+        )
+        .toList();
 
-    _monthlyExpenses = _expenses.where((e) =>
-        e.date.isAfter(monthStart.subtract(const Duration(seconds: 1))) &&
-        e.date.isBefore(monthEnd.add(const Duration(seconds: 1)))
-    ).toList();
+    _monthlyExpenses = _expenses
+        .where(
+          (e) =>
+              e.date.isAfter(monthStart.subtract(const Duration(seconds: 1))) &&
+              e.date.isBefore(monthEnd.add(const Duration(seconds: 1))),
+        )
+        .toList();
 
-    _last7DaysExpenses = _expenses.where((e) =>
-        e.date.isAfter(last7Start.subtract(const Duration(seconds: 1))) &&
-        e.date.isBefore(todayEnd.add(const Duration(seconds: 1)))
-    ).toList();
+    _last7DaysExpenses = _expenses
+        .where(
+          (e) =>
+              e.date.isAfter(last7Start.subtract(const Duration(seconds: 1))) &&
+              e.date.isBefore(todayEnd.add(const Duration(seconds: 1))),
+        )
+        .toList();
 
     _monthlyTotal = _monthlyExpenses
         .where((e) => e.isExpense)
@@ -119,10 +141,15 @@ class ExpenseProvider with ChangeNotifier {
         .where((e) => e.isIncome)
         .fold(0.0, (sum, e) => sum + e.amount);
 
-    final prevMonthExpenses = _expenses.where((e) =>
-        e.date.isAfter(prevMonthStart.subtract(const Duration(seconds: 1))) &&
-        e.date.isBefore(prevMonthEnd.add(const Duration(seconds: 1)))
-    ).toList();
+    final prevMonthExpenses = _expenses
+        .where(
+          (e) =>
+              e.date.isAfter(
+                prevMonthStart.subtract(const Duration(seconds: 1)),
+              ) &&
+              e.date.isBefore(prevMonthEnd.add(const Duration(seconds: 1))),
+        )
+        .toList();
 
     _previousMonthTotal = prevMonthExpenses
         .where((e) => e.isExpense)
@@ -130,24 +157,32 @@ class ExpenseProvider with ChangeNotifier {
 
     _categoryTotals = {};
     for (final e in _monthlyExpenses.where((e) => e.isExpense)) {
-      _categoryTotals[e.category] = (_categoryTotals[e.category] ?? 0.0) + e.amount;
+      _categoryTotals[e.category] =
+          (_categoryTotals[e.category] ?? 0.0) + e.amount;
     }
 
     _incomeCategoryTotals = {};
     for (final e in _monthlyExpenses.where((e) => e.isIncome)) {
-      _incomeCategoryTotals[e.category] = (_incomeCategoryTotals[e.category] ?? 0.0) + e.amount;
+      _incomeCategoryTotals[e.category] =
+          (_incomeCategoryTotals[e.category] ?? 0.0) + e.amount;
     }
 
     // Daily totals for last 7 days
     final dailyMap = <String, double>{};
     for (int i = 6; i >= 0; i--) {
-      final day = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
-      final dayKey = '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+      final day = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(Duration(days: i));
+      final dayKey =
+          '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
       dailyMap[dayKey] = 0.0;
     }
 
     for (final e in _last7DaysExpenses.where((e) => e.isExpense)) {
-      final dayKey = '${e.date.year}-${e.date.month.toString().padLeft(2, '0')}-${e.date.day.toString().padLeft(2, '0')}';
+      final dayKey =
+          '${e.date.year}-${e.date.month.toString().padLeft(2, '0')}-${e.date.day.toString().padLeft(2, '0')}';
       if (dailyMap.containsKey(dayKey)) {
         dailyMap[dayKey] = (dailyMap[dayKey] ?? 0.0) + e.amount;
       }
@@ -161,6 +196,7 @@ class ExpenseProvider with ChangeNotifier {
         .where((e) => e.isExpense)
         .fold(0.0, (sum, e) => sum + e.amount);
 
+    _recalculateRangeAggregates();
     notifyListeners();
   }
 
@@ -170,36 +206,12 @@ class ExpenseProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final now = DateTime.now();
-
       _expenses = await FirebaseService.instance.getExpenses(_userId!);
-      _todayExpenses = await FirebaseService.instance.getTodayExpenses(_userId!);
-      _last7DaysExpenses = await FirebaseService.instance.getLast7DaysExpenses(_userId!);
-      _monthlyExpenses = await FirebaseService.instance.getExpensesByMonth(
-        _userId!, now.year, now.month,
-      );
-      _monthlyTotal = await FirebaseService.instance.getMonthlyExpense(
-        _userId!, now.year, now.month,
-      );
-      _monthlyIncomeTotal = await FirebaseService.instance.getMonthlyIncome(
-        _userId!, now.year, now.month,
-      );
-      // Previous month
-      final prevMonth = DateTime(now.year, now.month - 1);
-      _previousMonthTotal = await FirebaseService.instance.getMonthlyExpense(
-        _userId!, prevMonth.year, prevMonth.month,
-      );
-      _categoryTotals = await FirebaseService.instance.getCategoryTotals(
-        _userId!, now.year, now.month, type: 'expense',
-      );
-      _incomeCategoryTotals = await FirebaseService.instance.getCategoryTotals(
-        _userId!, now.year, now.month, type: 'income',
-      );
-      _dailyTotals = await FirebaseService.instance.getDailyTotals(_userId!, 7);
-      _todayTotal = _todayExpenses.where((e) => e.isExpense).fold(0.0, (sum, e) => sum + e.amount);
+      _recalculateAggregates();
 
-      // Load recurring
-      _recurringExpenses = await FirebaseService.instance.getRecurringExpenses(_userId!);
+      _recurringExpenses = await FirebaseService.instance.getRecurringExpenses(
+        _userId!,
+      );
     } catch (e) {
       debugPrint('Error loading expenses: $e');
     }
@@ -213,25 +225,23 @@ class ExpenseProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    try {
-      _monthlyExpenses = await FirebaseService.instance.getExpensesByMonth(
-        _userId!, year, month,
-      );
-      _categoryTotals = await FirebaseService.instance.getCategoryTotals(
-        _userId!, year, month, type: 'expense',
-      );
-      _incomeCategoryTotals = await FirebaseService.instance.getCategoryTotals(
-        _userId!, year, month, type: 'income',
-      );
-      _monthlyTotal = await FirebaseService.instance.getMonthlyExpense(
-        _userId!, year, month,
-      );
-      _monthlyIncomeTotal = await FirebaseService.instance.getMonthlyIncome(
-        _userId!, year, month,
-      );
-    } catch (e) {
-      debugPrint('Error loading month expenses: $e');
-    }
+    final monthStart = DateTime(year, month, 1);
+    final nextMonthStart = DateTime(year, month + 1, 1);
+    _monthlyExpenses = _expenses
+        .where(
+          (expense) =>
+              !expense.date.isBefore(monthStart) &&
+              expense.date.isBefore(nextMonthStart),
+        )
+        .toList();
+    _monthlyTotal = _monthlyExpenses
+        .where((expense) => expense.isExpense)
+        .fold(0.0, (sum, expense) => sum + expense.amount);
+    _monthlyIncomeTotal = _monthlyExpenses
+        .where((expense) => expense.isIncome)
+        .fold(0.0, (sum, expense) => sum + expense.amount);
+    _categoryTotals = _totalsByCategory(_monthlyExpenses, isIncome: false);
+    _incomeCategoryTotals = _totalsByCategory(_monthlyExpenses, isIncome: true);
 
     _isLoading = false;
     notifyListeners();
@@ -243,44 +253,65 @@ class ExpenseProvider with ChangeNotifier {
   Map<String, double> _rangeIncomeCategoryTotals = {};
   double _rangeExpenseTotal = 0;
   double _rangeIncomeTotal = 0;
+  DateTime? _rangeStart;
+  DateTime? _rangeEnd;
 
   List<ExpenseModel> get rangeExpenses => _rangeExpenses;
   Map<String, double> get rangeCategoryTotals => _rangeCategoryTotals;
-  Map<String, double> get rangeIncomeCategoryTotals => _rangeIncomeCategoryTotals;
+  Map<String, double> get rangeIncomeCategoryTotals =>
+      _rangeIncomeCategoryTotals;
   double get rangeExpenseTotal => _rangeExpenseTotal;
   double get rangeIncomeTotal => _rangeIncomeTotal;
-  List<ExpenseModel> get rangeExpenseOnly => _rangeExpenses.where((e) => e.isExpense).toList();
-  List<ExpenseModel> get rangeIncomeOnly => _rangeExpenses.where((e) => e.isIncome).toList();
+  List<ExpenseModel> get rangeExpenseOnly =>
+      _rangeExpenses.where((e) => e.isExpense).toList();
+  List<ExpenseModel> get rangeIncomeOnly =>
+      _rangeExpenses.where((e) => e.isIncome).toList();
 
   Future<void> loadDateRangeExpenses(DateTime start, DateTime end) async {
-    if (_userId == null) return;
-    _isLoading = true;
+    _rangeStart = DateTime(start.year, start.month, start.day);
+    _rangeEnd = DateTime(end.year, end.month, end.day);
+    _recalculateRangeAggregates();
     notifyListeners();
+  }
 
-    try {
-      final endOfDay = DateTime(end.year, end.month, end.day, 23, 59, 59);
-      final startOfDay = DateTime(start.year, start.month, start.day);
-      _rangeExpenses = await FirebaseService.instance.getExpensesByDateRange(
-        _userId!, startOfDay, endOfDay,
-      );
-      _rangeCategoryTotals = await FirebaseService.instance.getCategoryTotalsByDateRange(
-        _userId!, startOfDay, endOfDay, type: 'expense',
-      );
-      _rangeIncomeCategoryTotals = await FirebaseService.instance.getCategoryTotalsByDateRange(
-        _userId!, startOfDay, endOfDay, type: 'income',
-      );
-      _rangeExpenseTotal = await FirebaseService.instance.getTotalByDateRange(
-        _userId!, startOfDay, endOfDay, type: 'expense',
-      );
-      _rangeIncomeTotal = await FirebaseService.instance.getTotalByDateRange(
-        _userId!, startOfDay, endOfDay, type: 'income',
-      );
-    } catch (e) {
-      debugPrint('Error loading date range expenses: $e');
+  void _recalculateRangeAggregates() {
+    final start = _rangeStart;
+    final end = _rangeEnd;
+    if (start == null || end == null) return;
+
+    final endExclusive = DateTime(end.year, end.month, end.day + 1);
+    _rangeExpenses = _expenses
+        .where(
+          (expense) =>
+              !expense.date.isBefore(start) &&
+              expense.date.isBefore(endExclusive),
+        )
+        .toList();
+    _rangeExpenseTotal = _rangeExpenses
+        .where((expense) => expense.isExpense)
+        .fold(0.0, (sum, expense) => sum + expense.amount);
+    _rangeIncomeTotal = _rangeExpenses
+        .where((expense) => expense.isIncome)
+        .fold(0.0, (sum, expense) => sum + expense.amount);
+    _rangeCategoryTotals = _totalsByCategory(_rangeExpenses, isIncome: false);
+    _rangeIncomeCategoryTotals = _totalsByCategory(
+      _rangeExpenses,
+      isIncome: true,
+    );
+  }
+
+  Map<String, double> _totalsByCategory(
+    List<ExpenseModel> expenses, {
+    required bool isIncome,
+  }) {
+    final totals = <String, double>{};
+    for (final expense in expenses.where(
+      (expense) => expense.isIncome == isIncome,
+    )) {
+      totals[expense.category] =
+          (totals[expense.category] ?? 0) + expense.amount;
     }
-
-    _isLoading = false;
-    notifyListeners();
+    return totals;
   }
 
   Future<bool> addExpense(ExpenseModel expense) async {
@@ -351,8 +382,13 @@ class ExpenseProvider with ChangeNotifier {
     final now = DateTime.now();
     final data = <double>[];
     for (int i = 6; i >= 0; i--) {
-      final day = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
-      final dayStr = '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+      final day = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(Duration(days: i));
+      final dayStr =
+          '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
       final match = _dailyTotals.where((d) => (d['day'] as String?) == dayStr);
       if (match.isNotEmpty) {
         data.add((match.first['total'] as num?)?.toDouble() ?? 0);
